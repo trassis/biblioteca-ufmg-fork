@@ -30,6 +30,7 @@ string exec(string cmd) {
 	if (!pipe) throw runtime_error("popen() failed!");
 	while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
 		result += buffer.data();
+	if (result.empty()) throw runtime_error("Comando de hash nao produziu saida");
 	result.pop_back();
 	return result;
 }
@@ -100,6 +101,7 @@ set<string> get_flags(string file) {
 }
 
 void remove_flags(string& line) {
+	if (line.empty() or line.back() != ']') return;
 	int has_flags = 0;
 	for (char c : line) {
 		if (has_flags == 0 and c == '[') has_flags++;
@@ -115,8 +117,21 @@ void remove_flags(string& line) {
 	while (line.size() and line.back() == ' ') line.pop_back();
 }
 
+// Emit strings rather than markup so code, titles and backticks stay literal.
+string typst_string(const string& text) {
+	string result = "\"";
+	for (char c : text) {
+		if (c == '\\' or c == '"') result += '\\';
+		if (c == '\n') result += "\\n";
+		else if (c == '\r') result += "\\r";
+		else if (c == '\t') result += "\\t";
+		else result += c;
+	}
+	return result + "\"";
+}
+
 void printa_arquivo_codigo(string file, bool extra = false) {
-	cout << "\\begin{lstlisting}\n";
+	ostringstream code;
 	ifstream fin(file.c_str());
 	string line;
 	int count = 0;
@@ -141,25 +156,15 @@ void printa_arquivo_codigo(string file, bool extra = false) {
 			if (comment) {
 				if (depth != 0) {
 					for (int i = 0; i < HASH_LEN + 1; i++)
-						cout << " ";
+						code << " ";
 				}
-			} else cout << hash << " ";
+			} else code << hash << " ";
 		}
-		cout << line << endl;
+		code << line << '\n';
 	}
 	fin.close();
-	cout << "\\end{lstlisting}\n\n";
-}
-
-void printa_arquivo(string file, bool extra = false) {
-	ifstream fin(file.c_str());
-	string line;
-	int count = 0;
-	while (getline(fin, line)) {
-		if (count++ < 2 and !extra) continue;
-		cout << line << endl;
-	}
-	fin.close();
+	cout << "#raw(" << typst_string(code.str())
+		 << ", block: true, lang: \"cpp\")\n\n";
 }
 
 string get_name(string file) {
@@ -170,14 +175,6 @@ string get_name(string file) {
 	remove_flags(line);
 	if (line[2] == ' ') return line.substr(3);
 	return line.substr(2);
-}
-
-void printa_cuidado(string s) {
-	for (char c : s) {
-		if (c == '^') cout << '\\';
-		cout << c;
-		if (c == '^') cout << "{}";
-	}
 }
 
 bool printa_listing(string sub, string file, bool extra = false) {
@@ -191,10 +188,8 @@ bool printa_listing(string sub, string file, bool extra = false) {
 			<< file.substr(10) << '\n';
 	}
 
-	cout << "\\subsection{";
-	if (!extra) printa_cuidado(get_name(file));
-	else printa_cuidado(sub);
-	cout << "}\n";
+	cout << "#heading(level: 2, "
+		 << typst_string(!extra ? get_name(file) : sub) << ")\n";
 
 	printa_arquivo_codigo(file, extra);
 	return true;
@@ -219,14 +214,7 @@ void dfs(vector<pair<string, string>>& files, string s, bool extra = false) {
 }
 
 void printa_section(string s) {
-	cout << "\n\n";
-
-	for (int i = 0; i < 20; i++) cout << "%";
-	cout << "\n%\n% " << s << "\n%\n";
-	for (int i = 0; i < 20; i++) cout << "%";
-	cout << "\n\n";
-
-	cout << "\\section{" << s << "}\n\n";
+	cout << "\n#heading(level: 1, " << typst_string(s) << ")\n\n";
 }
 
 string lower(string s) {
@@ -235,6 +223,7 @@ string lower(string s) {
 }
 
 int main(int argc, char** argv) {
+	if (const char* code_dir = getenv("CODE_DIR")) path = code_dir;
 	if (argc > 1) {
 		string arg1(argv[1]);
 		if (arg1 == "--printall") {
@@ -243,7 +232,7 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	printa_arquivo("comeco.tex", true);
+	cout << "#import \"template.typ\": biblioteca\n#show: biblioteca\n\n";
 	struct dirent* entry = nullptr;
 	DIR* dp = nullptr;
 	dp = opendir(path.c_str());
@@ -270,11 +259,10 @@ int main(int argc, char** argv) {
 		cerr << endl;
 	}
 
-	cout << "\\pagebreak" << endl;
+	cout << "#pagebreak()" << endl;
 	printa_section("Extra");
 	vector<pair<string, string>> files;
 	dfs(files, path + "Extra", true);
 
-	cout << "\\end{document}\n";
 	return 0;
 }

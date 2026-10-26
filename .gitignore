@@ -74,9 +74,9 @@ Temporary Items
 .apdisk
 
 *~
-latex/biblioteca.tex
-latex/biblioteca.log
-latex/getlatex
+typst/biblioteca.typ
+typst/__pycache__/
+latex/env.tex
 
 # Stuff for the website
 website/_vendor/

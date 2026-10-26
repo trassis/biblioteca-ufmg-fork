@@ -1,27 +1,18 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Compila somente o guia teórico. Para a biblioteca: ../typst/gettypst.sh.
+set -euo pipefail
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd -- "$script_dir"
 
-# Provide default values
-: ${TEAMNAME:="Xerebêlerebébis"}
-: ${MEMBERS:="Emanuel Silva, Bruno Monteiro \\& Rafael Grandsire"}
-: ${UNIVERSITY:="UFMG"}
+: "${TEAMNAME:=Xerebêlerebébis}"
+: "${MEMBERS:=Emanuel Silva, Bruno Monteiro \\& Rafael Grandsire}"
+: "${UNIVERSITY:=UFMG}"
 
-cat > env.tex <<EOF
-\def\teamname{$TEAMNAME}
-\def\teammembers{$MEMBERS}
-\def\teamuni{$UNIVERSITY}
-EOF
+trap 'rm -f -- "$script_dir/env.tex"' EXIT
+printf '\\def\\teamname{%s}\n\\def\\teammembers{%s}\n\\def\\teamuni{%s}\n' \
+    "$TEAMNAME" "$MEMBERS" "$UNIVERSITY" > env.tex
 
-g++ -std=c++17 -o getlatex getlatex.cpp -O2
-./getlatex $1 > biblioteca.tex
-rubber -d biblioteca
-mv biblioteca.pdf ../pdf
-rm tmp.cpp
-rm getlatex biblioteca.aux biblioteca.toc biblioteca.out
-rm -f biblioteca.rubbercache
-
-pushd ../theoretical
+mkdir -p ../pdf
+cd ../theoretical
 latexmk -pdf theoretical -outdir=../pdf
 latexmk -pdf theoretical -outdir=../pdf -c
-popd
-
-rm env.tex

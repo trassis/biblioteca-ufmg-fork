@@ -34,6 +34,20 @@ Para ver o hash no vim, seleciona as linhas com `Shift+v`, e aperta `Ctrl+h`.
 
 </details>
 
+## Compilar o PDF da biblioteca
+
+A biblioteca usa [Typst](https://typst.app/open-source/), sem dependência de LaTeX ou de pacotes Typst externos. Instale o Typst (0.13 ou superior), as fontes DejaVu e as ferramentas de geração dos hashes:
+
+```sh
+sudo apt install g++ coreutils fonts-dejavu-core
+# Instale o Typst: https://github.com/typst/typst/releases
+bash typst/gettypst.sh
+```
+
+O resultado é `pdf/biblioteca.pdf`. Use `bash typst/gettypst.sh --printall` para incluir também os códigos marcados com `noprint`.
+
+Personalização, recompilação e instruções separadas para o guia teórico (que continua em LaTeX): [pdf/README.md](pdf/README.md).
+
 ## 📚 Conteúdo
 
 ### 🧠 Programação Dinâmica
