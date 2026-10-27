@@ -1,12 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -gt 1 || ( $# -eq 1 && "$1" != "--printall" ) ]]; then
-    echo "Uso: $0 [--printall]" >&2
-    exit 1
-fi
+usage() {
+    echo "Uso: $0 [--printall] [--no-cache | --rebuild-cache] [--cache-dir DIR] [--jobs N] [--stats]" >&2
+}
 
-for dependency in g++ cpp md5sum typst; do
+stats=false
+args=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --printall|--no-cache|--rebuild-cache) args+=("$1"); shift ;;
+        --stats) stats=true; args+=("$1"); shift ;;
+        --jobs)
+            if [[ $# -lt 2 || ! "$2" =~ ^[0-9]+$ || ${#2} -gt 2 ]]; then usage; exit 1; fi
+            if (( 10#$2 < 1 || 10#$2 > 64 )); then usage; exit 1; fi
+            args+=("$1" "$2"); shift 2 ;;
+        --cache-dir)
+            if [[ $# -lt 2 || -z "$2" ]]; then usage; exit 1; fi
+            cache_dir="$2"
+            [[ "$cache_dir" = /* ]] || cache_dir="$PWD/$cache_dir"
+            args+=("$1" "$cache_dir"); shift 2 ;;
+        --help|-h) usage; exit 0 ;;
+        *) usage; exit 1 ;;
+    esac
+done
+
+for dependency in g++ "${HASH_CPP:-cpp}" typst; do
     if ! command -v "$dependency" >/dev/null 2>&1; then
         echo "Dependência não encontrada: $dependency" >&2
         exit 1
@@ -22,15 +41,27 @@ trap 'rm -rf -- "$build_dir"' EXIT
 : "${MEMBERS:=Emanuel Silva, Bruno Monteiro & Rafael Grandsire}"
 : "${UNIVERSITY:=UFMG}"
 
-g++ -std=c++17 -O2 "$script_dir/gettypst.cpp" -o "$build_dir/gettypst"
-# O gerador usa tmp.cpp para calcular os hashes; mantenha-o isolado.
+timed() {
+    local label="$1"
+    shift
+    if "$stats"; then
+        TIMEFORMAT="$label: %3R s"
+        time "$@"
+    else
+        "$@"
+    fi
+}
+
+timed "Compilação C++" g++ -std=c++17 -O2 -pthread "$script_dir/gettypst.cpp" -o "$build_dir/gettypst"
 (
-    cd -- "$build_dir"
-    CODE_DIR="$repo_dir/Codigo/" ./gettypst "$@" > biblioteca.typ
+    cd -- "$repo_dir"
+    timed "Geração dos hashes/documento" env CODE_DIR="$repo_dir/Codigo/" \
+        "$build_dir/gettypst" --cache-dir "$script_dir/.cache/hashes" "${args[@]}" > "$build_dir/biblioteca.typ"
 )
+# Preserve the previous generated source if generation fails.
 mv -- "$build_dir/biblioteca.typ" "$script_dir/biblioteca.typ"
 mkdir -p -- "$repo_dir/pdf"
-typst compile --root "$repo_dir" \
+timed "Compilação Typst" typst compile --root "$repo_dir" \
     --input "teamname=$TEAMNAME" \
     --input "members=$MEMBERS" \
     --input "university=$UNIVERSITY" \

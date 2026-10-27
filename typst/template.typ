@@ -1,4 +1,28 @@
 // Layout da biblioteca; não depende de pacotes externos.
+// Cor dos comentários no tema padrão de destaque de sintaxe do Typst.
+#let comment-color = rgb("#8a8a8a")
+
+#let listing(source, hashed: false) = {
+  let lines = source.split("\n")
+  let hashes = lines.map(line => {
+    if hashed and line.match(regex("^[0-9a-f]{3} ")) != none {
+      line.slice(0, 3)
+    } else {
+      none
+    }
+  })
+  // Destaque apenas o código, sem deixar os hashes interferirem no lexer.
+  let code = lines.enumerate().map(((index, line)) => {
+    if hashes.at(index) != none { line.slice(4) } else { line }
+  }).join("\n")
+  show raw.line: line => {
+    let hash = hashes.at(line.number - 1, default: none)
+    if hash != none { text(fill: comment-color, hash + " ") }
+    line.body
+  }
+  raw(code, block: true, lang: "cpp")
+}
+
 #let biblioteca(body) = {
   let team = sys.inputs.at("teamname", default: "Xerebêlerebébis")
   let members = sys.inputs.at("members", default: "Emanuel Silva, Bruno Monteiro & Rafael Grandsire")

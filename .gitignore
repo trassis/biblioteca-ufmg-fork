@@ -76,6 +76,8 @@ Temporary Items
 *~
 typst/biblioteca.typ
 typst/__pycache__/
+typst/.cache/
+.hash-cache/
 latex/env.tex
 
 # Stuff for the website
